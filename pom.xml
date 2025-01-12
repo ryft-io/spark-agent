@@ -5,13 +5,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>io.ryft</groupId>
-    <artifactId>spark-agent</artifactId>
-    <version>1.0.1</version>
+    <artifactId>spark</artifactId>
+    <version>0.1.2</version>
     <packaging>jar</packaging>
 
     <name>Ryft Spark Agent</name>
     <description>A Spark agent for data processing and transformation</description>
-    <url>https://github.com/ryft/spark-agent</url>
+    <url>https://github.com/ryft/spark</url>
 
     <licenses>
         <license>
@@ -31,9 +31,9 @@
     </developers>
 
     <scm>
-        <connection>scm:git:git:@github.com/ryft-io/spark-agent.git</connection>
-        <developerConnection>scm:git:https://github.com/ryft-io/spark-agent.git</developerConnection>
-        <url>https://github.com/ryft-io/spark-agent/tree/main</url>
+        <connection>scm:git:git:@github.com/ryft-io/spark.git</connection>
+        <developerConnection>scm:git:https://github.com/ryft-io/spark.git</developerConnection>
+        <url>https://github.com/ryft-io/spark/tree/main</url>
         <tag>HEAD</tag>
     </scm>
 
