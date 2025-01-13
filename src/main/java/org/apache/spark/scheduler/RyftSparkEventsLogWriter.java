@@ -26,10 +26,15 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
 
         LOG.info("Ryft event log directory is set to: {}", this.eventLogDir);
 
-        var maxFilesToRetain = sparkConf.getOption("spark.eventLog.ryft.rolling.maxFilesToRetain")
-                .getOrElse(() -> {
-                    LOG.warn("Max files to retain is not set. Using default value: 10");
-                    return "10";
+        sparkConf.getOption("spark.eventLog.ryft.rolling.maxFilesToRetain")
+                .fold(() -> {
+                    LOG.warn("Ryft event log's max files to retain is not set. using default behavior of no retention limit");
+                    sparkConf.remove("spark.eventLog.rolling.maxFilesToRetain");
+                    return null;
+                }, maxFilesToRetainValue -> {
+                    LOG.info("Ryft event log's max files to retain is set to: {}", maxFilesToRetainValue);
+                    sparkConf.set("spark.eventLog.rolling.maxFilesToRetain", maxFilesToRetainValue);
+                    return null;
                 });
 
         var maxFileSize = sparkConf.getOption("spark.eventLog.ryft.rolling.maxFileSize")
@@ -44,9 +49,15 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
                     return "true";
                 });
 
-        sparkConf.set("spark.eventLog.rolling.maxFilesToRetain", maxFilesToRetain);
+        var minFileWriteInterval = sparkConf.getOption("spark.eventLog.ryft.rotation.interval")
+                .getOrElse(() -> {
+                    LOG.warn("Min file write interval is not set. Using default value: 300s");
+                    return "300s";
+                });
+
         sparkConf.set("spark.eventLog.rolling.maxFileSize", maxFileSize);
         sparkConf.set("spark.eventLog.overwrite", overwrite);
+        sparkConf.set("spark.eventLog.rotation.interval", minFileWriteInterval);
 
         this.eventLogWriter = new RollingEventLogFilesWriter(
                 sparkContext.applicationId(),
@@ -54,7 +65,7 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
                 URI.create(this.eventLogDir),
                 sparkConf,
                 sparkContext.hadoopConfiguration()
-        );
+        );`
 
         LOG.info("Starting ryft event log writer");
         this.eventLogWriter.start();
