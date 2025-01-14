@@ -8,11 +8,13 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 
 import java.net.URI;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class RyftSparkEventsLogWriter implements SparkListenerInterface {
     private static final Logger LOG = LoggerFactory.getLogger(RyftSparkEventsLogWriter.class);
     private RollingEventLogFilesWriter eventLogWriter;
     private final String eventLogDir;
+    private final AtomicInteger maxQueryBufferSize = new AtomicInteger(1000);
 
     public RyftSparkEventsLogWriter(SparkContext sparkContext) {
         var sparkConf = sparkContext.getConf();
@@ -26,10 +28,15 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
 
         LOG.info("Ryft event log directory is set to: {}", this.eventLogDir);
 
-        var maxFilesToRetain = sparkConf.getOption("spark.eventLog.ryft.rolling.maxFilesToRetain")
-                .getOrElse(() -> {
-                    LOG.warn("Max files to retain is not set. Using default value: 10");
-                    return "10";
+        sparkConf.getOption("spark.eventLog.ryft.rolling.maxFilesToRetain")
+                .fold(() -> {
+                    LOG.warn("Ryft event log's max files to retain is not set. using default behavior of no retention limit");
+                    sparkConf.remove("spark.eventLog.rolling.maxFilesToRetain");
+                    return null;
+                }, maxFilesToRetainValue -> {
+                    LOG.info("Ryft event log's max files to retain is set to: {}", maxFilesToRetainValue);
+                    sparkConf.set("spark.eventLog.rolling.maxFilesToRetain", maxFilesToRetainValue);
+                    return null;
                 });
 
         var maxFileSize = sparkConf.getOption("spark.eventLog.ryft.rolling.maxFileSize")
@@ -44,9 +51,15 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
                     return "true";
                 });
 
-        sparkConf.set("spark.eventLog.rolling.maxFilesToRetain", maxFilesToRetain);
+        var minFileWriteInterval = sparkConf.getOption("spark.eventLog.ryft.rotation.interval")
+                .getOrElse(() -> {
+                    LOG.warn("Min file write interval is not set. Using default value: 300s");
+                    return "300s";
+                });
+
         sparkConf.set("spark.eventLog.rolling.maxFileSize", maxFileSize);
         sparkConf.set("spark.eventLog.overwrite", overwrite);
+        sparkConf.set("spark.eventLog.rotation.interval", minFileWriteInterval);
 
         this.eventLogWriter = new RollingEventLogFilesWriter(
                 sparkContext.applicationId(),
@@ -88,17 +101,14 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
 
     @Override
     public void onTaskStart(SparkListenerTaskStart taskStart) {
-        return;
     }
 
     @Override
     public void onTaskGettingResult(SparkListenerTaskGettingResult taskGettingResult) {
-        return;
     }
 
     @Override
     public void onTaskEnd(SparkListenerTaskEnd taskEnd) {
-        return;
     }
 
     @Override
@@ -113,7 +123,6 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
 
     @Override
     public void onJobEnd(SparkListenerJobEnd jobEnd) {
-        return;
     }
 
     @Override
@@ -239,7 +248,6 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
 
     @Override
     public void onSpeculativeTaskSubmitted(SparkListenerSpeculativeTaskSubmitted speculativeTask) {
-        return;
     }
 
     @Override
