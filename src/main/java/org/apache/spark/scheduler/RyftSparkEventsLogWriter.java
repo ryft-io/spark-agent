@@ -8,11 +8,13 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 
 import java.net.URI;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class RyftSparkEventsLogWriter implements SparkListenerInterface {
     private static final Logger LOG = LoggerFactory.getLogger(RyftSparkEventsLogWriter.class);
     private RollingEventLogFilesWriter eventLogWriter;
     private final String eventLogDir;
+    private final AtomicInteger maxQueryBufferSize = new AtomicInteger(1000);
 
     public RyftSparkEventsLogWriter(SparkContext sparkContext) {
         var sparkConf = sparkContext.getConf();
@@ -65,7 +67,7 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
                 URI.create(this.eventLogDir),
                 sparkConf,
                 sparkContext.hadoopConfiguration()
-        );`
+        );
 
         LOG.info("Starting ryft event log writer");
         this.eventLogWriter.start();
@@ -99,17 +101,14 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
 
     @Override
     public void onTaskStart(SparkListenerTaskStart taskStart) {
-        return;
     }
 
     @Override
     public void onTaskGettingResult(SparkListenerTaskGettingResult taskGettingResult) {
-        return;
     }
 
     @Override
     public void onTaskEnd(SparkListenerTaskEnd taskEnd) {
-        return;
     }
 
     @Override
@@ -124,7 +123,6 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
 
     @Override
     public void onJobEnd(SparkListenerJobEnd jobEnd) {
-        return;
     }
 
     @Override
@@ -250,7 +248,6 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
 
     @Override
     public void onSpeculativeTaskSubmitted(SparkListenerSpeculativeTaskSubmitted speculativeTask) {
-        return;
     }
 
     @Override
