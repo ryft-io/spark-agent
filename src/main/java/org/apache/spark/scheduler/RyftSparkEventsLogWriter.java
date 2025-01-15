@@ -4,6 +4,7 @@ import java.net.URI;
 import java.time.Duration;
 import org.apache.spark.SparkContext;
 import org.apache.spark.deploy.history.RollingEventLogFilesWriter;
+import org.apache.spark.sql.SparkSession;
 import org.apache.spark.util.JsonProtocol;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -99,10 +100,14 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
       LOG.info("Starting ryft event log writer");
       eventLogWriter.start();
     } catch (Exception e) {
-      LOG.error("Failed to start ryft event log writer", e);
+      numAttempts++;
+      LOG.error(
+          String.format(
+              "Failed to start ryft event log writer. Attempt %d / %d", numAttempts, MAX_ATTEMPTS),
+          e);
       eventLogWriter = null;
 
-      if (numAttempts++ >= MAX_ATTEMPTS) {
+      if (numAttempts >= MAX_ATTEMPTS) {
         LOG.error("Ryft initialization failed after {} attempts. Gave up", numAttempts);
         nextInitializationAttemptTimestamp = 0;
       } else {
@@ -136,7 +141,7 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
       if (!isEventLogDirSet() || !isEventLogWriterAvailable()) {
         if (nextInitializationAttemptTimestamp > 0
             && System.currentTimeMillis() > nextInitializationAttemptTimestamp) {
-          Option<SparkContext> sc = SparkContext.getActive();
+          Option<SparkContext> sc = getSparkContext();
           if (sc.isDefined()) {
             tryInit(sc.get());
           }
@@ -150,6 +155,15 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
     } catch (Exception e) {
       LOG.warn("Failed to write event to {}", this.eventLogDir, e);
     }
+  }
+
+  private Option<SparkContext> getSparkContext() {
+    Option<SparkSession> activeSession = SparkSession.getActiveSession();
+    if (activeSession.isDefined()) {
+      return Option.apply(activeSession.get().sparkContext());
+    }
+
+    return Option.empty();
   }
 
   private void closeEventLogWriter() {
