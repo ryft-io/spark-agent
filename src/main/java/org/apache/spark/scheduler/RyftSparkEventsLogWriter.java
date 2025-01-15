@@ -1,5 +1,6 @@
 package org.apache.spark.scheduler;
 
+import io.ryft.spark.utils.Randomizer;
 import org.apache.spark.SparkContext;
 import org.apache.spark.deploy.history.RollingEventLogFilesWriter;
 import org.apache.spark.util.JsonProtocol;
@@ -9,10 +10,14 @@ import org.slf4j.Logger;
 
 import java.net.URI;
 
+
+
 public class RyftSparkEventsLogWriter implements SparkListenerInterface {
     private static final Logger LOG = LoggerFactory.getLogger(RyftSparkEventsLogWriter.class);
     private RollingEventLogFilesWriter eventLogWriter;
     private String eventLogDir;
+    private final Long logSamplingRate = 100L;
+    private Long logSamplingCounter = 0L;
 
     public RyftSparkEventsLogWriter(SparkContext sparkContext) {
         try {
@@ -24,6 +29,8 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
             });
 
             if (eventLogDir == null) return;
+
+            eventLogDir = eventLogDir + "/" + Randomizer.generateUniqueString(10) + "/";
 
             LOG.info("Ryft event log directory is set to: {}", eventLogDir);
 
@@ -77,9 +84,17 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
         }
     }
 
+
+    private void sampleLogWarn(String message) {
+        if (logSamplingCounter % logSamplingRate == 0) {
+            LOG.warn(message);
+        }
+        logSamplingCounter++;
+    }
+
     private boolean isEventLogWriterAvailable() {
         if (eventLogWriter == null) {
-            LOG.warn("Ryft event log writer was not initialized.");
+            sampleLogWarn("Ryft event log writer was not initialized.");
             return false;
         }
 
@@ -88,7 +103,7 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
 
     private boolean isEventLogDirSet() {
         if (eventLogDir == null) {
-            LOG.warn("Ryft event log folder was not set.");
+            sampleLogWarn("Ryft event log folder was not set.");
             return false;
         }
 
@@ -100,7 +115,7 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
             if (!isEventLogDirSet() || !isEventLogWriterAvailable()) {
                 return;
             }
-            LOG.info("Writing to event log: {}, to destination: {}", event.getClass(), this.eventLogDir);
+            LOG.debug("Writing to event log: {}, to destination: {}", event.getClass(), this.eventLogDir);
             String eventJson = JsonProtocol.sparkEventToJsonString(event);
             eventLogWriter.writeEvent(eventJson, true);
         } catch (Exception e) {
@@ -277,7 +292,6 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
 
     @Override
     public void onOtherEvent(SparkListenerEvent event) {
-        LOG.info("Other event of type: {}", event.getClass());
         this.writeEventToLog(event);
     }
 
