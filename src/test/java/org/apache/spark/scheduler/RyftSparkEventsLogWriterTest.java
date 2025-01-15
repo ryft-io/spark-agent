@@ -1,7 +1,7 @@
-package org.apache.spark;
+package org.apache.spark.scheduler;
 
-import org.apache.spark.scheduler.RyftSparkEventsLogWriter;
-import org.apache.spark.scheduler.SparkListenerEvent;
+import org.apache.spark.SparkConf;
+import org.apache.spark.SparkContext;
 import org.junit.Test;
 
 public class RyftSparkEventsLogWriterTest {
