@@ -1,5 +1,6 @@
 package org.apache.spark.scheduler;
 
+import io.ryft.spark.utils.Randomizer;
 import java.net.URI;
 import java.time.Duration;
 import org.apache.hadoop.conf.Configuration;
@@ -8,11 +9,20 @@ import org.apache.spark.SparkContext;
 import org.apache.spark.deploy.history.RollingEventLogFilesWriter;
 import org.apache.spark.util.JsonProtocol;
 import org.slf4j.Logger;
+
+import java.net.URI;
+import java.util.Random;
+
 import org.slf4j.LoggerFactory;
 import scala.Option;
 
 public class RyftSparkEventsLogWriter implements SparkListenerInterface {
-  private static final Logger LOG = LoggerFactory.getLogger(RyftSparkEventsLogWriter.class);
+    private static final Logger LOG = LoggerFactory.getLogger(RyftSparkEventsLogWriter.class);
+    private RollingEventLogFilesWriter eventLogWriter;
+
+    private final Random random = new Random();
+    private int randomSamplingRate = 100;
+
   private static final long FIVE_MINUTES_MILLISECONDS = Duration.ofMinutes(5).toMillis();
   private static final int MAX_ATTEMPTS = 3;
 
@@ -21,7 +31,6 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
   private Option<String> applicationAttemptId;
   private Configuration hadoopConf;
 
-  private RollingEventLogFilesWriter eventLogWriter;
   private String eventLogDir;
   private long nextInitializationAttemptTimestamp;
   private int numAttempts;
@@ -54,6 +63,8 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
                   });
 
       if (eventLogDir == null) return;
+
+      eventLogDir = eventLogDir + "/" + Randomizer.generateUniqueString(10) + "/";
 
       LOG.info("Ryft event log directory is set to: {}", eventLogDir);
 
@@ -332,11 +343,11 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
   @Override
   public void onSpeculativeTaskSubmitted(SparkListenerSpeculativeTaskSubmitted speculativeTask) {}
 
-  @Override
-  public void onOtherEvent(SparkListenerEvent event) {
-    LOG.info("Other event of type: {}", event.getClass());
-    this.writeEventToLog(event);
-  }
+
+    @Override
+    public void onOtherEvent(SparkListenerEvent event) {
+        this.writeEventToLog(event);
+    }
 
   @Override
   public void onResourceProfileAdded(SparkListenerResourceProfileAdded event) {
