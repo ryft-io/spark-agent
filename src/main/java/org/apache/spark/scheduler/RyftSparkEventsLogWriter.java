@@ -2,6 +2,9 @@ package org.apache.spark.scheduler;
 
 import java.net.URI;
 import java.time.Duration;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 import org.apache.spark.deploy.history.RollingEventLogFilesWriter;
 import org.apache.spark.sql.SparkSession;
@@ -15,19 +18,33 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
   private static final long FIVE_MINUTES_MILLISECONDS = Duration.ofMinutes(5).toMillis();
   private static final int MAX_ATTEMPTS = 3;
 
+  private SparkConf sparkConf;
+  private String applicationId;
+  private Option<String> applicationAttemptId;
+  private Configuration hadoopConf;
+
   private RollingEventLogFilesWriter eventLogWriter;
   private String eventLogDir;
   private long nextInitializationAttemptTimestamp;
   private int numAttempts;
 
   public RyftSparkEventsLogWriter(SparkContext sparkContext) {
-    tryInit(sparkContext);
+    try {
+      sparkConf = sparkContext.getConf();
+      applicationId = sparkContext.applicationId();
+      applicationAttemptId = sparkContext.applicationAttemptId();
+      hadoopConf = sparkContext.hadoopConfiguration();
+
+      tryInit();
+    } catch (Exception e) {
+      // In the unexpected case of unavailable sparkContext at the point of accessing the
+      // configuration - catch and continue
+      LOG.error("Ryft event log writer failed to extract conf from spark context", e);
+    }
   }
 
-  private void tryInit(SparkContext sparkContext) {
+  private void tryInit() {
     try {
-      var sparkConf = sparkContext.getConf();
-
       eventLogDir =
           sparkConf
               .getOption("spark.eventLog.ryft.dir")
@@ -91,11 +108,7 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
 
       eventLogWriter =
           new RollingEventLogFilesWriter(
-              sparkContext.applicationId(),
-              sparkContext.applicationAttemptId(),
-              URI.create(eventLogDir),
-              sparkConf,
-              sparkContext.hadoopConfiguration());
+              applicationId, applicationAttemptId, URI.create(eventLogDir), sparkConf, hadoopConf);
 
       LOG.info("Starting ryft event log writer");
       eventLogWriter.start();
@@ -141,10 +154,7 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
       if (!isEventLogDirSet() || !isEventLogWriterAvailable()) {
         if (nextInitializationAttemptTimestamp > 0
             && System.currentTimeMillis() > nextInitializationAttemptTimestamp) {
-          Option<SparkContext> sc = getSparkContext();
-          if (sc.isDefined()) {
-            tryInit(sc.get());
-          }
+          tryInit();
         }
 
         return;
@@ -155,15 +165,6 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
     } catch (Exception e) {
       LOG.warn("Failed to write event to {}", this.eventLogDir, e);
     }
-  }
-
-  private Option<SparkContext> getSparkContext() {
-    Option<SparkSession> activeSession = SparkSession.getActiveSession();
-    if (activeSession.isDefined()) {
-      return Option.apply(activeSession.get().sparkContext());
-    }
-
-    return Option.empty();
   }
 
   private void closeEventLogWriter() {
