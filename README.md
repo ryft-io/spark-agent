@@ -16,8 +16,8 @@ You can configure the Ryft Spark plugin directly in your Spark application code:
 val spark = SparkSession.builder()
       .appName("MySparkApp")
       // Other configurations
-      .config("spark.jars.packages", "io.ryft:spark:0.1.0") // Add the package
-      .config("spark.extraListeners", "org.apache.spark.scheduler.RyftSparkEventsLogWriter") // Set the Ryft Spark listener
+      .config("spark.jars.packages", "io.ryft:spark:0.1.5") // Add the package
+      .config("spark.plugins", "io.ryft.spark.RyftSparkEventsLogPlugin") // Set the Ryft Spark plugin
       .config("spark.eventLog.ryft.dir", "s3://<your-bucket>/<ryft-spark-events-logs>/") // Specify the log destination
       .getOrCreate()
 ```
@@ -29,7 +29,7 @@ Alternatively, you can add the necessary configurations to your spark-defaults.c
 
 ```properties
 # Add the Ryft Spark plugin package
-spark.jars.packages      io.ryft:spark:0.1.0
+spark.jars.packages      io.ryft:spark:0.1.5
 
 # Set the Ryft Spark plugin
 spark.plugins     io.ryft.spark.RyftSparkEventsLogPlugin
