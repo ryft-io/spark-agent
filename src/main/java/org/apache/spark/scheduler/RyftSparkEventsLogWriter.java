@@ -8,73 +8,98 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 
 import java.net.URI;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class RyftSparkEventsLogWriter implements SparkListenerInterface {
     private static final Logger LOG = LoggerFactory.getLogger(RyftSparkEventsLogWriter.class);
     private RollingEventLogFilesWriter eventLogWriter;
-    private final String eventLogDir;
-    private final AtomicInteger maxQueryBufferSize = new AtomicInteger(1000);
+    private String eventLogDir;
 
     public RyftSparkEventsLogWriter(SparkContext sparkContext) {
-        var sparkConf = sparkContext.getConf();
+        try {
+            var sparkConf = sparkContext.getConf();
 
-        this.eventLogDir = sparkConf.getOption("spark.eventLog.ryft.dir").getOrElse(() -> {
-            LOG.error("Event log directory is not set. Can't start the Ryft event log writer");
-            return null;
-        });
+            eventLogDir = sparkConf.getOption("spark.eventLog.ryft.dir").getOrElse(() -> {
+                LOG.error("Event log directory is not set. Can't start the Ryft event log writer");
+                return null;
+            });
 
-        if (this.eventLogDir == null) return;
+            if (eventLogDir == null) return;
 
-        LOG.info("Ryft event log directory is set to: {}", this.eventLogDir);
+            LOG.info("Ryft event log directory is set to: {}", eventLogDir);
 
-        sparkConf.getOption("spark.eventLog.ryft.rolling.maxFilesToRetain")
-                .fold(() -> {
-                    LOG.warn("Ryft event log's max files to retain is not set. using default behavior of no retention limit");
-                    sparkConf.remove("spark.eventLog.rolling.maxFilesToRetain");
-                    return null;
-                }, maxFilesToRetainValue -> {
-                    LOG.info("Ryft event log's max files to retain is set to: {}", maxFilesToRetainValue);
-                    sparkConf.set("spark.eventLog.rolling.maxFilesToRetain", maxFilesToRetainValue);
-                    return null;
-                });
+            sparkConf.getOption("spark.eventLog.ryft.rolling.maxFilesToRetain")
+                    .fold(() -> {
+                        LOG.warn("Ryft event log's max files to retain is not set. using default behavior of no retention limit");
+                        sparkConf.remove("spark.eventLog.rolling.maxFilesToRetain");
+                        return null;
+                    }, maxFilesToRetainValue -> {
+                        LOG.info("Ryft event log's max files to retain is set to: {}", maxFilesToRetainValue);
+                        sparkConf.set("spark.eventLog.rolling.maxFilesToRetain", maxFilesToRetainValue);
+                        return null;
+                    });
 
-        var maxFileSize = sparkConf.getOption("spark.eventLog.ryft.rolling.maxFileSize")
-                .getOrElse(() -> {
-                    LOG.warn("Max file size is not set. Using default value: 10M");
-                    return "10M";
-                });
+            var maxFileSize = sparkConf.getOption("spark.eventLog.ryft.rolling.maxFileSize")
+                    .getOrElse(() -> {
+                        LOG.warn("Max file size is not set. Using default value: 10M");
+                        return "10M";
+                    });
 
-        var overwrite = sparkConf.getOption("spark.eventLog.ryft.rolling.overwrite")
-                .getOrElse(() -> {
-                    LOG.warn("Overwrite is not set. Using default value: true");
-                    return "true";
-                });
+            var overwrite = sparkConf.getOption("spark.eventLog.ryft.rolling.overwrite")
+                    .getOrElse(() -> {
+                        LOG.warn("Overwrite is not set. Using default value: true");
+                        return "true";
+                    });
 
-        var minFileWriteInterval = sparkConf.getOption("spark.eventLog.ryft.rotation.interval")
-                .getOrElse(() -> {
-                    LOG.warn("Min file write interval is not set. Using default value: 300s");
-                    return "300s";
-                });
+            var minFileWriteInterval = sparkConf.getOption("spark.eventLog.ryft.rotation.interval")
+                    .getOrElse(() -> {
+                        LOG.warn("Min file write interval is not set. Using default value: 300s");
+                        return "300s";
+                    });
 
-        sparkConf.set("spark.eventLog.rolling.maxFileSize", maxFileSize);
-        sparkConf.set("spark.eventLog.overwrite", overwrite);
-        sparkConf.set("spark.eventLog.rotation.interval", minFileWriteInterval);
+            sparkConf.set("spark.eventLog.rolling.maxFileSize", maxFileSize);
+            sparkConf.set("spark.eventLog.overwrite", overwrite);
+            sparkConf.set("spark.eventLog.rotation.interval", minFileWriteInterval);
 
-        this.eventLogWriter = new RollingEventLogFilesWriter(
-                sparkContext.applicationId(),
-                sparkContext.applicationAttemptId(),
-                URI.create(this.eventLogDir),
-                sparkConf,
-                sparkContext.hadoopConfiguration()
-        );
+            eventLogWriter = new RollingEventLogFilesWriter(
+                    sparkContext.applicationId(),
+                    sparkContext.applicationAttemptId(),
+                    URI.create(eventLogDir),
+                    sparkConf,
+                    sparkContext.hadoopConfiguration()
+            );
 
-        LOG.info("Starting ryft event log writer");
-        this.eventLogWriter.start();
+            LOG.info("Starting ryft event log writer");
+            eventLogWriter.start();
+        }
+        catch (Exception e) {
+            LOG.error("Failed to start ryft event log writer", e);
+            eventLogWriter = null;
+        }
+    }
+
+    private boolean isEventLogWriterAvailable() {
+        if (eventLogWriter == null) {
+            LOG.warn("Ryft event log writer was not initialized.");
+            return false;
+        }
+
+        return true;
+    }
+
+    private boolean isEventLogDirSet() {
+        if (eventLogDir == null) {
+            LOG.warn("Ryft event log folder was not set.");
+            return false;
+        }
+
+        return true;
     }
 
     private void writeEventToLog(SparkListenerEvent event) {
         try {
+            if (!isEventLogDirSet() || !isEventLogWriterAvailable()) {
+                return;
+            }
             LOG.info("Writing to event log: {}, to destination: {}", event.getClass(), this.eventLogDir);
             String eventJson = JsonProtocol.sparkEventToJsonString(event);
             eventLogWriter.writeEvent(eventJson, true);
@@ -252,7 +277,7 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
 
     @Override
     public void onOtherEvent(SparkListenerEvent event) {
-        LOG.info("Other event of type: {}", event);
+        LOG.info("Other event of type: {}", event.getClass());
         this.writeEventToLog(event);
     }
 
