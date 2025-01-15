@@ -2,12 +2,10 @@ package org.apache.spark.scheduler;
 
 import java.net.URI;
 import java.time.Duration;
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 import org.apache.spark.deploy.history.RollingEventLogFilesWriter;
-import org.apache.spark.sql.SparkSession;
 import org.apache.spark.util.JsonProtocol;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
