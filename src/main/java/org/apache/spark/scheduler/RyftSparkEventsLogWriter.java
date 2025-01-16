@@ -1,15 +1,18 @@
 package org.apache.spark.scheduler;
 
-import io.ryft.spark.utils.Randomizer;
+import io.ryft.spark.utils.StringRandomizer;
 
 import java.net.URI;
 import java.time.Duration;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.spark.SparkConf;
-import org.apache.spark.SparkContext;
 import org.apache.spark.deploy.history.RollingEventLogFilesWriter;
 import org.apache.spark.util.JsonProtocol;
+import org.apache.spark.util.Utils;
 import org.slf4j.Logger;
 
 import java.util.Random;
@@ -17,33 +20,73 @@ import java.util.Random;
 import org.slf4j.LoggerFactory;
 import scala.Option;
 
+/**
+ * A Spark listener that writes events to a Ryft-specific event log.
+ *
+ * <p>This class implements {@link SparkListenerInterface} to capture and process Spark events.
+ * It uses a {@link RollingEventLogFilesWriter} to manage the event log, supporting features
+ * such as rolling files, retention policies, and customizable configurations. Events are serialized
+ * to JSON format using Spark's {@link JsonProtocol} before being logged.</p>
+ *
+ * <p>Key features include:</p>
+ * <ul>
+ *   <li>Integration with Spark configuration options for log directory and retention settings.</li>
+ *   <li>Automatic retries for initialization with exponential backoff.</li>
+ *   <li>Selective logging to manage logging frequency and avoid log spam.</li>
+ * </ul>
+ *
+ * <p>Usage:</p>
+ * <p>The listener can be attached to a SparkContext to begin logging events.
+ * Configuration options such as log directory, maximum file size, and retention policies
+ * are specified via Spark properties prefixed with <code>spark.eventLog.ryft</code>.</p>
+ *
+ * <p>Example Spark properties:</p>
+ * <ul>
+ *   <li><code>spark.eventLog.ryft.dir</code>: Base directory for Ryft event logs.</li>
+ *   <li><code>spark.eventLog.ryft.rolling.maxFileSize</code>: Maximum size of each log file.</li>
+ *   <li><code>spark.eventLog.ryft.rolling.overwrite</code>: Whether to overwrite existing log files.</li>
+ *   <li><code>spark.eventLog.ryft.rotation.interval</code>: Interval for log rotation.</li>
+ * </ul>
+ *
+ * <p>Note: If initialization fails after a predefined number of attempts, the writer will stop
+ * retrying. This behavior is logged for troubleshooting.</p>
+ *
+ * <p>Thread safety: This class is not thread-safe and should be used in the context of a single-threaded
+ * Spark listener execution model.</p>
+ *
+ * @see org.apache.spark.scheduler.SparkListenerInterface
+ * @see RollingEventLogFilesWriter
+ * @see JsonProtocol
+ */
+
 public class RyftSparkEventsLogWriter implements SparkListenerInterface {
     private static final Logger LOG = LoggerFactory.getLogger(RyftSparkEventsLogWriter.class);
     private RollingEventLogFilesWriter eventLogWriter;
 
-    private final Random random = new Random();
-    private int LOG_SAMPLE_RATE = 100;
+    private final Random RANDOM = new Random();
+    private final int LOG_SAMPLE_RATE = 100;
 
     private static final long FIVE_MINUTES_MILLISECONDS = Duration.ofMinutes(5).toMillis();
     private static final int MAX_ATTEMPTS = 3;
+    private long nextInitializationAttemptTimestamp;
+    private int numAttempts;
 
     private SparkConf sparkConf;
     private String applicationId;
     private Option<String> applicationAttemptId;
     private Configuration hadoopConf;
 
-    private String eventLogDir;
-    private long nextInitializationAttemptTimestamp;
-    private int numAttempts;
+    private URI eventLogDir;
+    private static final int EVENT_LOG_DIR_SUFFIX_LENGTH = 6;
 
-    public RyftSparkEventsLogWriter(SparkContext sparkContext) {
+    public RyftSparkEventsLogWriter(org.apache.spark.SparkContext sparkContext) {
         try {
             sparkConf = sparkContext.getConf();
             applicationId = sparkContext.applicationId();
             applicationAttemptId = sparkContext.applicationAttemptId();
             hadoopConf = sparkContext.hadoopConfiguration();
 
-            tryInit();
+            attemptActivateWriter();
         } catch (Exception e) {
             // In the unexpected case of unavailable sparkContext at the point of accessing the
             // configuration - catch and continue
@@ -51,9 +94,21 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
         }
     }
 
-    private void tryInit() {
+    private URI generateEventLogDirURI(String eventLogBaseDir) {
+        eventLogBaseDir = eventLogBaseDir + "/" + StringRandomizer.generateUniqueString(EVENT_LOG_DIR_SUFFIX_LENGTH) + "/";
+        return URI.create(eventLogBaseDir).normalize();
+    }
+
+    private void makeBaseDir(URI eventLogBaseDir) throws Exception {
+        var logFolderPermissions = new FsPermission((short) 0770);
+        var fileSystem = Utils.getHadoopFileSystem(eventLogBaseDir, hadoopConf);
+        var logFolderPath = new Path(eventLogBaseDir);
+        FileSystem.mkdirs(fileSystem, logFolderPath, logFolderPermissions);
+    }
+
+    private void attemptActivateWriter() {
         try {
-            eventLogDir =
+            String eventLogBaseDir =
                     sparkConf
                             .getOption("spark.eventLog.ryft.dir")
                             .getOrElse(
@@ -63,9 +118,11 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
                                         return null;
                                     });
 
-            if (eventLogDir == null) return;
+            if (eventLogBaseDir == null){
+                return;
+            }
 
-            eventLogDir = eventLogDir + "/" + Randomizer.generateUniqueString(6) + "/";
+            ensureEventLogDirExists(eventLogBaseDir);
 
             LOG.info("Ryft event log directory is set to: {}", eventLogDir);
 
@@ -118,7 +175,7 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
 
             eventLogWriter =
                     new RollingEventLogFilesWriter(
-                            applicationId, applicationAttemptId, URI.create(eventLogDir), sparkConf, hadoopConf);
+                            applicationId, applicationAttemptId, eventLogDir, sparkConf, hadoopConf);
 
             LOG.info("Starting ryft event log writer");
             eventLogWriter.start();
@@ -141,8 +198,24 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
         }
     }
 
+    private void ensureEventLogDirExists(String eventLogBaseDir) throws Exception {
+        if (eventLogDir != null) {
+            return;
+        }
+
+        eventLogDir = generateEventLogDirURI(eventLogBaseDir);
+
+        try {
+            makeBaseDir(eventLogDir);
+        } catch (Exception e) {
+            LOG.error("Failed to create event log directory: {}", eventLogDir, e);
+            eventLogDir = null;
+            throw e;
+        }
+    }
+
     private void sampleLogWarn(String message) {
-        if (random.nextInt() %  LOG_SAMPLE_RATE == 0) {
+        if (RANDOM.nextInt() % LOG_SAMPLE_RATE == 0) {
             LOG.warn(message);
         }
     }
@@ -170,7 +243,7 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
             if (!isEventLogDirSet() || !isEventLogWriterAvailable()) {
                 if (nextInitializationAttemptTimestamp > 0
                         && System.currentTimeMillis() > nextInitializationAttemptTimestamp) {
-                    tryInit();
+                    attemptActivateWriter();
                 }
 
                 return;

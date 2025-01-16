@@ -4,6 +4,8 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 import org.junit.Test;
 
+import java.net.URI;
+
 public class RyftSparkEventsLogWriterTest {
   @Test
   public void test() {
@@ -20,5 +22,16 @@ public class RyftSparkEventsLogWriterTest {
                 return SparkListenerEvent.super.logEvent();
               }
             });
+  }
+
+  @Test
+  public void test2() {
+    var eventDir = "eventDir/";
+
+    eventDir = "s3://" + eventDir + "/" + "sdfsdf/";
+
+    var uri = URI.create(eventDir).normalize();
+
+    System.out.println(uri);
   }
 }
