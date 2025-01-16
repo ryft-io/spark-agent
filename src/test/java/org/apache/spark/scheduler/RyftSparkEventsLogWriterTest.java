@@ -23,15 +23,4 @@ public class RyftSparkEventsLogWriterTest {
               }
             });
   }
-
-  @Test
-  public void test2() {
-    var eventDir = "eventDir/";
-
-    eventDir = "s3://" + eventDir + "/" + "sdfsdf/";
-
-    var uri = URI.create(eventDir).normalize();
-
-    System.out.println(uri);
-  }
 }
