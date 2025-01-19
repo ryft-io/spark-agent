@@ -347,7 +347,6 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
 
     @Override
     public void onExecutorMetricsUpdate(SparkListenerExecutorMetricsUpdate executorMetricsUpdate) {
-        this.writeEventToLog(executorMetricsUpdate);
     }
 
     @Override
