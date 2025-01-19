@@ -17,7 +17,7 @@ val spark = SparkSession.builder()
       .appName("MySparkApp")
       // Other configurations
       .config("spark.jars.packages", "io.ryft:spark:0.1.5") // Add the package
-      .config("spark.plugins", "io.ryft.spark.RyftSparkEventsLogPlugin") // Set the Ryft Spark plugin
+      .config("spark.plugins", "io.ryft.spark.RyftSparkEventLogPlugin") // Set the Ryft Spark plugin
       .config("spark.eventLog.ryft.dir", "s3://<your-bucket>/<ryft-spark-events-logs>/") // Specify the log destination
       .getOrCreate()
 ```
@@ -29,11 +29,9 @@ Alternatively, you can add the necessary configurations to your spark-defaults.c
 
 ```properties
 # Add the Ryft Spark plugin package
-spark.jars.packages      io.ryft:spark:0.1.5
-
+spark.jars.packages io.ryft:spark:0.1.5
 # Set the Ryft Spark plugin
-spark.plugins     io.ryft.spark.RyftSparkEventsLogPlugin
-
+spark.plugins io.ryft.spark.RyftSparkEventLogPlugin
 # Specify the log destination
-spark.eventLog.ryft.dir  s3://<your-bucket>/<ryft-spark-events-logs>/
+spark.eventLog.ryft.dir s3://<your-bucket>/<ryft-spark-events-logs>/
 ```

@@ -10,7 +10,7 @@ import org.apache.spark.api.plugin.SparkPlugin;
  * This plugin provides driver and executor plugins specifically tailored for Ryft's event logging needs.
  * </p>
  */
-public class RyftSparkEventsLogPlugin implements SparkPlugin {
+public class RyftSparkEventLogPlugin implements SparkPlugin {
 
     /**
      * Returns the driver plugin instance for Ryft Spark event logging.
@@ -19,7 +19,7 @@ public class RyftSparkEventsLogPlugin implements SparkPlugin {
      */
     @Override
     public DriverPlugin driverPlugin() {
-        return new RyftSparkEventsLogWriterDriverPlugin();
+        return new RyftSparkEventLogWriterDriverPlugin();
     }
 
     /**
