@@ -8,7 +8,7 @@ public class RyftSparkEventLogWriterTest {
   @Test
   public void test() {
     SparkConf conf = new SparkConf();
-    SparkContext sc = new SparkContext("local", "SparkEventsLogWriter", conf);
+    SparkContext sc = new SparkContext("local", "SparkEventLogWriter", conf);
     RyftSparkEventLogWriter listener = new RyftSparkEventLogWriter(sc);
     sc.addSparkListener(listener);
 
