@@ -45,7 +45,7 @@ public class RyftSparkEventsLogWriterDriverPlugin implements DriverPlugin {
      */
     @Override
     public void registerMetrics(String appId, PluginContext pluginContext) {
-        LOG.info("RyftSparkEventsLogWriter class loaded: {}", RyftSparkEventsLogWriter.class.getName());
+        LOG.info("Registering Ryft spark events log writer listener");
         sc.addSparkListener(new RyftSparkEventsLogWriter(sc));
     }
 }

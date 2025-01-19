@@ -248,7 +248,7 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
 
                 return;
             }
-            LOG.info("Writing to event log: {}, to destination: {}", event.getClass(), this.eventLogDir);
+            LOG.debug("Writing to event log: {}, to destination: {}", event.getClass(), this.eventLogDir);
             String eventJson = JsonProtocol.sparkEventToJsonString(event);
             eventLogWriter.writeEvent(eventJson, true);
         } catch (Exception e) {
