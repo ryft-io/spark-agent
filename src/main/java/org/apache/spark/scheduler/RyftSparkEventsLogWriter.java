@@ -60,24 +60,33 @@ import scala.Option;
  */
 
 public class RyftSparkEventsLogWriter implements SparkListenerInterface {
+    // Logger properties
     private static final Logger LOG = LoggerFactory.getLogger(RyftSparkEventsLogWriter.class);
-    private RollingEventLogFilesWriter eventLogWriter;
-
     private final Random RANDOM = new Random();
     private final int LOG_SAMPLE_RATE = 100;
 
+    // RollingEventLogFilesWriter properties
+    private RollingEventLogFilesWriter eventLogWriter;
+    private static final String DEFAULT_ROLLING_FILE_MAX_SIZE = "10M";
+    private static final String DEFAULT_ROLLING_FILE_MIN_SIZE = "1m";
+    private static final String DEFAULT_ROLLING_OVERWRITE = "true";
+    private static final String DEFAULT_ROLLING_INTERVAL = "300s";
+
+    // Activation retries properties
     private static final long FIVE_MINUTES_MILLISECONDS = Duration.ofMinutes(5).toMillis();
     private static final int MAX_ATTEMPTS = 3;
-    private long nextInitializationAttemptTimestamp;
-    private int numAttempts;
 
+    // Writer spark context properties
     private SparkConf sparkConf;
     private String applicationId;
     private Option<String> applicationAttemptId;
     private Configuration hadoopConf;
 
+    // Event log directory properties
     private URI eventLogDir;
     private static final int EVENT_LOG_DIR_SUFFIX_LENGTH = 6;
+    private long nextInitializationAttemptTimestamp;
+    private int numAttempts;
 
     public RyftSparkEventsLogWriter(org.apache.spark.SparkContext sparkContext) {
         try {
@@ -149,8 +158,17 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
                             .getOption("spark.eventLog.ryft.rolling.maxFileSize")
                             .getOrElse(
                                     () -> {
-                                        LOG.warn("Max file size is not set. Using default value: 10M");
-                                        return "10M";
+                                        LOG.warn("Max file size is not set. Using default value: {}", DEFAULT_ROLLING_FILE_MAX_SIZE);
+                                        return DEFAULT_ROLLING_FILE_MAX_SIZE;
+                                    });
+
+            var minFileSize =
+                    sparkConf
+                            .getOption("spark.eventLog.ryft.rolling.minFileSize")
+                            .getOrElse(
+                                    () -> {
+                                        LOG.warn("Min file size is not set. Using default value: {}", DEFAULT_ROLLING_FILE_MIN_SIZE);
+                                        return DEFAULT_ROLLING_FILE_MIN_SIZE;
                                     });
 
             var overwrite =
@@ -158,8 +176,8 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
                             .getOption("spark.eventLog.ryft.rolling.overwrite")
                             .getOrElse(
                                     () -> {
-                                        LOG.warn("Overwrite is not set. Using default value: true");
-                                        return "true";
+                                        LOG.warn("Overwrite is not set. Using default value: {}", DEFAULT_ROLLING_OVERWRITE);
+                                        return DEFAULT_ROLLING_OVERWRITE;
                                     });
 
             var minFileWriteInterval =
@@ -167,11 +185,12 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
                             .getOption("spark.eventLog.ryft.rotation.interval")
                             .getOrElse(
                                     () -> {
-                                        LOG.warn("Min file write interval is not set. Using default value: 300s");
-                                        return "300s";
+                                        LOG.warn("Min file write interval is not set. Using default value: {}", DEFAULT_ROLLING_INTERVAL);
+                                        return DEFAULT_ROLLING_FILE_MAX_SIZE;
                                     });
 
             sparkConf.set("spark.eventLog.rolling.maxFileSize", maxFileSize);
+            sparkConf.set("spark.eventLog.rolling.minFileSize", minFileSize);
             sparkConf.set("spark.eventLog.overwrite", overwrite);
             sparkConf.set("spark.eventLog.rotation.interval", minFileWriteInterval);
 
