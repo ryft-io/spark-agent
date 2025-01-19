@@ -67,8 +67,8 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
 
     // RollingEventLogFilesWriter properties
     private RollingEventLogFilesWriter eventLogWriter;
-    private static final String DEFAULT_ROLLING_FILE_MAX_SIZE = "1M";
-    private static final String DEFAULT_ROLLING_FILE_MIN_SIZE = "1M";
+    private static final String DEFAULT_ROLLING_FILE_MAX_SIZE = "10M";
+    private static final String DEFAULT_ROLLING_FILE_MIN_SIZE = "1m";
     private static final String DEFAULT_ROLLING_OVERWRITE = "true";
     private static final String DEFAULT_ROLLING_INTERVAL = "300s";
 
