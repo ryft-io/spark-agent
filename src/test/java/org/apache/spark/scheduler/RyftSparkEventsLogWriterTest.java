@@ -4,6 +4,8 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 import org.junit.Test;
 
+import java.net.URI;
+
 public class RyftSparkEventsLogWriterTest {
   @Test
   public void test() {
