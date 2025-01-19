@@ -59,11 +59,12 @@ import scala.Option;
  * @see JsonProtocol
  */
 
-public class RyftSparkEventsLogWriter implements SparkListenerInterface {
+public class RyftSparkEventLogWriter implements SparkListenerInterface {
     // Logger properties
-    private static final Logger LOG = LoggerFactory.getLogger(RyftSparkEventsLogWriter.class);
+    private static final Logger LOG = LoggerFactory.getLogger(RyftSparkEventLogWriter.class);
+    private static final int LOG_SAMPLE_RATE = 100;
+
     private final Random RANDOM = new Random();
-    private final int LOG_SAMPLE_RATE = 100;
 
     // RollingEventLogFilesWriter properties
     private RollingEventLogFilesWriter eventLogWriter;
@@ -88,7 +89,7 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
     private long nextInitializationAttemptTimestamp;
     private int numAttempts;
 
-    public RyftSparkEventsLogWriter(org.apache.spark.SparkContext sparkContext) {
+    public RyftSparkEventLogWriter(org.apache.spark.SparkContext sparkContext) {
         try {
             sparkConf = sparkContext.getConf();
             applicationId = sparkContext.applicationId();

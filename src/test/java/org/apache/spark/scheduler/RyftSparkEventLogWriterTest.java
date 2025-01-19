@@ -4,14 +4,12 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 import org.junit.Test;
 
-import java.net.URI;
-
-public class RyftSparkEventsLogWriterTest {
+public class RyftSparkEventLogWriterTest {
   @Test
   public void test() {
     SparkConf conf = new SparkConf();
     SparkContext sc = new SparkContext("local", "SparkEventsLogWriter", conf);
-    RyftSparkEventsLogWriter listener = new RyftSparkEventsLogWriter(sc);
+    RyftSparkEventLogWriter listener = new RyftSparkEventLogWriter(sc);
     sc.addSparkListener(listener);
 
     sc.listenerBus()
