@@ -100,6 +100,8 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
     }
 
     private void makeBaseDir(URI eventLogBaseDir) throws Exception {
+        // Permissions given here are: owner can read, write, execute; group can read, write, execute;
+        // others have no permissions
         var logFolderPermissions = new FsPermission((short) 0770);
         var fileSystem = Utils.getHadoopFileSystem(eventLogBaseDir, hadoopConf);
         var logFolderPath = new Path(eventLogBaseDir);
