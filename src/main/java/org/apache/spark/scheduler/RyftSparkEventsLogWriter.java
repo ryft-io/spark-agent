@@ -68,7 +68,7 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
     // RollingEventLogFilesWriter properties
     private RollingEventLogFilesWriter eventLogWriter;
     private static final String DEFAULT_ROLLING_FILE_MAX_SIZE = "10M";
-    private static final String DEFAULT_ROLLING_MIN_FILE_SIZE = "1m";
+    private static final String DEFAULT_ROLLING_FILE_MIN_SIZE = "1m";
     private static final String DEFAULT_ROLLING_OVERWRITE = "true";
     private static final String DEFAULT_ROLLING_INTERVAL = "300s";
 
@@ -167,8 +167,8 @@ public class RyftSparkEventsLogWriter implements SparkListenerInterface {
                             .getOption("spark.eventLog.ryft.rolling.minFileSize")
                             .getOrElse(
                                     () -> {
-                                        LOG.warn("Min file size is not set. Using default value: {}", DEFAULT_ROLLING_MIN_FILE_SIZE);
-                                        return DEFAULT_ROLLING_MIN_FILE_SIZE;
+                                        LOG.warn("Min file size is not set. Using default value: {}", DEFAULT_ROLLING_FILE_MIN_SIZE);
+                                        return DEFAULT_ROLLING_FILE_MIN_SIZE;
                                     });
 
             var overwrite =
