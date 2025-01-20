@@ -149,9 +149,7 @@ public class RyftSparkEventLogWriter implements SparkListenerInterface {
                                         return null;
                                     });
 
-            if (eventLogBaseDir == null) {
-                return;
-            }
+            if (eventLogBaseDir == null) return;
 
             ensureEventLogDirExists(eventLogBaseDir);
 
