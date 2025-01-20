@@ -17,9 +17,11 @@ import org.slf4j.Logger;
 
 import java.time.Instant;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.LoggerFactory;
 import scala.Option;
+import scala.Some;
 
 /**
  * A Spark listener that writes events to a Ryft-specific event log.
@@ -91,9 +93,9 @@ public class RyftSparkEventLogWriter implements SparkListenerInterface {
     private int numAttempts;
 
     // Interval rotation properties
-    private static final Long DEFAULT_ROLLING_INTERVAL_MS = 300000L; // 5 minutes in ms
-    private Long rollingInterval = 0L;
-    private Long lastRotationStartTimestamp = 0L;
+    private static final Duration DEFAULT_ROLLING_INTERVAL_MS = Duration.ofMinutes(5); // 5 minutes in ms
+    private Duration rollingInterval = DEFAULT_ROLLING_INTERVAL_MS;
+    private Instant lastRotationTimestamp = Instant.MIN;
 
     public RyftSparkEventLogWriter(org.apache.spark.SparkContext sparkContext) {
         try {
@@ -126,12 +128,12 @@ public class RyftSparkEventLogWriter implements SparkListenerInterface {
 
     // we support the following interval expressions as config values following the scala duration standard:
     // <size integer><time unit> - example 5s, 5m, 5h
-    public static Long parseIntervalToMs(String interval, Long defaultIntervalInMs) {
+    public static Option<Duration> parseIntervalToDuration(String interval) {
         try {
-            return Duration.parse("PT" + interval.toUpperCase()).toMillis();
+            return new Some<>(Duration.parse("PT" + interval.toUpperCase()));
         } catch (Exception e) {
-            LOG.error("Failed to parse interval expression: {}. Using default value: {}", interval, defaultIntervalInMs);
-            return defaultIntervalInMs;
+            LOG.error("Failed to parse interval expression: {}.", interval);
+            return Option.empty();
         }
     }
 
@@ -201,20 +203,14 @@ public class RyftSparkEventLogWriter implements SparkListenerInterface {
             rollingInterval =
                     sparkConf
                             .getOption("spark.eventLog.ryft.rotation.interval")
-                            .fold(
+                            .flatMap(RyftSparkEventLogWriter::parseIntervalToDuration)
+                            .getOrElse(
                                     () -> {
                                         LOG.info(
                                                 "Ryft event log's rotation interval is not set. Using default value: {}",
                                                 DEFAULT_ROLLING_INTERVAL_MS);
-                                            return DEFAULT_ROLLING_INTERVAL_MS;
-                                    },
-                                    intervalExpression -> {
-                                        var interval = parseIntervalToMs(intervalExpression, DEFAULT_ROLLING_INTERVAL_MS);
-                                        LOG.info("Ryft event log's rotation interval is set to: {}", interval);
-                                        return interval;
-                                    }
-                            );
-
+                                        return DEFAULT_ROLLING_INTERVAL_MS;
+                                    });
 
             sparkConf.set("spark.eventLog.rolling.maxFileSize", maxFileSize);
             sparkConf.set("spark.eventLog.rolling.minFileSize", minFileSize);
@@ -226,7 +222,7 @@ public class RyftSparkEventLogWriter implements SparkListenerInterface {
 
             LOG.info("Starting ryft event log writer");
             eventLogWriter.start();
-            lastRotationStartTimestamp = Instant.now().toEpochMilli();
+            lastRotationTimestamp = Instant.now();
         } catch (Exception e) {
             numAttempts++;
             LOG.error(
@@ -299,9 +295,9 @@ public class RyftSparkEventLogWriter implements SparkListenerInterface {
             LOG.debug("Writing to event log: {}, to destination: {}", event.getClass(), this.eventLogDir);
             String eventJson = JsonProtocol.sparkEventToJsonString(event);
             eventLogWriter.writeEvent(eventJson, true);
-            if (rollingInterval > 0 && Instant.now().toEpochMilli() - lastRotationStartTimestamp > rollingInterval) {
+            if (lastRotationTimestamp.isAfter(Instant.MIN) && Instant.now().isAfter(lastRotationTimestamp.plus(rollingInterval))) {
                 eventLogWriter.rollEventLogFile();
-                lastRotationStartTimestamp = Instant.now().toEpochMilli();
+                lastRotationTimestamp = Instant.now();
             }
         } catch (Exception e) {
             LOG.warn("Failed to write event to {}", this.eventLogDir, e);
