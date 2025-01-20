@@ -15,6 +15,7 @@ import org.apache.spark.util.JsonProtocol;
 import org.apache.spark.util.Utils;
 import org.slf4j.Logger;
 
+import java.time.Instant;
 import java.util.Random;
 
 import org.slf4j.LoggerFactory;
@@ -66,12 +67,12 @@ public class RyftSparkEventLogWriter implements SparkListenerInterface {
 
     private final Random RANDOM = new Random();
 
-    // RollingEventLogFilesWriter properties
+    // Spark RollingEventLogFilesWriter properties
     private RollingEventLogFilesWriter eventLogWriter;
     private static final String DEFAULT_ROLLING_FILE_MAX_SIZE = "10M";
     private static final String DEFAULT_ROLLING_FILE_MIN_SIZE = "1m";
     private static final String DEFAULT_ROLLING_OVERWRITE = "true";
-    private static final String DEFAULT_ROLLING_INTERVAL = "300s";
+
 
     // Activation retries properties
     private static final long FIVE_MINUTES_MILLISECONDS = Duration.ofMinutes(5).toMillis();
@@ -88,6 +89,11 @@ public class RyftSparkEventLogWriter implements SparkListenerInterface {
     private static final int EVENT_LOG_DIR_SUFFIX_LENGTH = 6;
     private long nextInitializationAttemptTimestamp;
     private int numAttempts;
+
+    // Interval rotation properties
+    private static final Long DEFAULT_ROLLING_INTERVAL_MS = 300000L; // 5 minutes in ms
+    private Long rollingInterval = 0L;
+    private Long lastRotationStartTimestamp = 0L;
 
     public RyftSparkEventLogWriter(org.apache.spark.SparkContext sparkContext) {
         try {
@@ -118,6 +124,17 @@ public class RyftSparkEventLogWriter implements SparkListenerInterface {
         FileSystem.mkdirs(fileSystem, logFolderPath, logFolderPermissions);
     }
 
+    // we support the following interval expressions as config values following the scala duration standard:
+    // <size integer><time unit> - example 5s, 5m, 5h
+    public static Long parseIntervalToMs(String interval, Long defaultIntervalInMs) {
+        try {
+            return Duration.parse("PT" + interval.toUpperCase()).toMillis();
+        } catch (Exception e) {
+            LOG.error("Failed to parse interval expression: {}. Using default value: {}", interval, defaultIntervalInMs);
+            return defaultIntervalInMs;
+        }
+    }
+
     private void attemptActivateWriter() {
         try {
             String eventLogBaseDir =
@@ -130,7 +147,7 @@ public class RyftSparkEventLogWriter implements SparkListenerInterface {
                                         return null;
                                     });
 
-            if (eventLogBaseDir == null){
+            if (eventLogBaseDir == null) {
                 return;
             }
 
@@ -181,19 +198,27 @@ public class RyftSparkEventLogWriter implements SparkListenerInterface {
                                         return DEFAULT_ROLLING_OVERWRITE;
                                     });
 
-            var minFileWriteInterval =
+            rollingInterval =
                     sparkConf
                             .getOption("spark.eventLog.ryft.rotation.interval")
-                            .getOrElse(
+                            .fold(
                                     () -> {
-                                        LOG.warn("Min file write interval is not set. Using default value: {}", DEFAULT_ROLLING_INTERVAL);
-                                        return DEFAULT_ROLLING_FILE_MAX_SIZE;
-                                    });
+                                        LOG.info(
+                                                "Ryft event log's rotation interval is not set. Using default value: {}",
+                                                DEFAULT_ROLLING_INTERVAL_MS);
+                                            return DEFAULT_ROLLING_INTERVAL_MS;
+                                    },
+                                    intervalExpression -> {
+                                        var interval = parseIntervalToMs(intervalExpression, DEFAULT_ROLLING_INTERVAL_MS);
+                                        LOG.info("Ryft event log's rotation interval is set to: {}", interval);
+                                        return interval;
+                                    }
+                            );
+
 
             sparkConf.set("spark.eventLog.rolling.maxFileSize", maxFileSize);
             sparkConf.set("spark.eventLog.rolling.minFileSize", minFileSize);
             sparkConf.set("spark.eventLog.overwrite", overwrite);
-            sparkConf.set("spark.eventLog.rotation.interval", minFileWriteInterval);
 
             eventLogWriter =
                     new RollingEventLogFilesWriter(
@@ -201,6 +226,7 @@ public class RyftSparkEventLogWriter implements SparkListenerInterface {
 
             LOG.info("Starting ryft event log writer");
             eventLogWriter.start();
+            lastRotationStartTimestamp = Instant.now().toEpochMilli();
         } catch (Exception e) {
             numAttempts++;
             LOG.error(
@@ -273,6 +299,10 @@ public class RyftSparkEventLogWriter implements SparkListenerInterface {
             LOG.debug("Writing to event log: {}, to destination: {}", event.getClass(), this.eventLogDir);
             String eventJson = JsonProtocol.sparkEventToJsonString(event);
             eventLogWriter.writeEvent(eventJson, true);
+            if (rollingInterval > 0 && Instant.now().toEpochMilli() - lastRotationStartTimestamp > rollingInterval) {
+                eventLogWriter.rollEventLogFile();
+                lastRotationStartTimestamp = Instant.now().toEpochMilli();
+            }
         } catch (Exception e) {
             LOG.warn("Failed to write event to {}", this.eventLogDir, e);
         }
