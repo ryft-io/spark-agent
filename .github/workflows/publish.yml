@@ -38,9 +38,10 @@ jobs:
 
       - name: Build and deploy artifact
         env:
-          MAVEN_ID: ${{ secrets.MAVEN_ID }}
-          MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
-          MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+          MAVEN_OPTS: >-
+            -Dserver.id=${{ secrets.MAVEN_ID }}
+            -Dserver.username=${{ secrets.MAVEN_USERNAME }}
+            -Dserver.password=${{ secrets.MAVEN_PASSWORD }}
         run: |
           mvn clean deploy \
           --batch-mode \
