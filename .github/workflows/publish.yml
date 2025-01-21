@@ -35,7 +35,7 @@ jobs:
       - name: Update artifact version in pom.xml
         run: mvn versions:set -DnewVersion=${{ env.ARTIFACT_VERSION }}
       - name: Publish package
-        run: mvn clean --batch-mode deploy -DskipTests
+        run: mvn clean --batch-mode deploy -DskipTests -Drevision=${{ env.ARTIFACT_VERSION }}
         env:
           MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
