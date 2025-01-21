@@ -16,7 +16,7 @@
 
     <groupId>io.ryft</groupId>
     <artifactId>spark</artifactId>
-    <version>${artifact.version}</version>
+    <version>${project.version}</version>
     <packaging>jar</packaging>
 
     <name>Ryft Spark Agent</name>
