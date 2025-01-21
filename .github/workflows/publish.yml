@@ -33,7 +33,7 @@ jobs:
           echo "Setting artifact version to $ARTIFACT_VERSION"
           echo "ARTIFACT_VERSION=$ARTIFACT_VERSION" >> $GITHUB_ENV
       - name: Publish package
-        run: mvn clean --batch-mode deploy -DskipTests -Dartifact.version=${{ env.ARTIFACT_VERSION }}
+        run: mvn clean --batch-mode deploy -DskipTests -Dartifact.version=${{ env.ARTIFACT_VERSION }} versions:set -DnewVersion=${{ env.ARTIFACT_VERSION }}
         env:
           MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
