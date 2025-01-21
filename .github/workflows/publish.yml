@@ -31,7 +31,7 @@ jobs:
           TAG=${{ github.ref_name }}
           echo "ARTIFACT_VERSION=${TAG:1}" >> $GITHUB_ENV
       - name: Publish package
-        run: mvn clean --batch-mode deploy -DskipTests -Dartifact.version=${{ env.ARTIFACT_VERSION }}
+        run: mvn clean --batch-mode deploy -DskipTests -Dartifact.version=${{ env.ARTIFACT_VERSION }} -X
         env:
           MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
