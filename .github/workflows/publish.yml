@@ -1,0 +1,46 @@
+name: Deploy Maven Artifact on Tag
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+    branches:
+      - 'main'
+
+jobs:
+  deploy:
+    name: Deploy Maven Artifact
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'maven'
+          server-id: central
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_PASSWORD
+          gpg-private-key: ${{ secrets.MAVEN_GPG_SECRET_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+      - name: Extract and format release version
+        id: extract_version
+        run: |
+          TAG=${{ github.ref_name }}
+          ARTIFACT_VERSION=${TAG:1}
+          echo "Setting artifact version to $ARTIFACT_VERSION"
+          echo "ARTIFACT_VERSION=$ARTIFACT_VERSION" >> $GITHUB_ENV
+      - name: Update artifact version in pom.xml
+        run: mvn versions:set -DnewVersion=${{ env.ARTIFACT_VERSION }}
+      - name: Publish package
+        run: mvn clean --batch-mode deploy -DskipTests -Drevision=${{ env.ARTIFACT_VERSION }}
+        env:
+          MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_SECRET_KEY_PASSWORD }}
+          
+          
