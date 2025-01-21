@@ -12,7 +12,6 @@
         <version.spark.major>3.5.3</version.spark.major>
         <version.hadoop>3.5.3</version.hadoop>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <artifact.version>0.2.3</artifact.version>
     </properties>
 
     <groupId>io.ryft</groupId>
