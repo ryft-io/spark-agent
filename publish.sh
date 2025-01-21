@@ -30,19 +30,19 @@ fi
 # We want to avoid publishing versions that doesn't include meaningful changes.
 
 ## Fetch the latest changes from the remote repository ( we want to make sure we are comparing the latest changes )
-#git fetch origin
-#
+git fetch origin
+
 ## Get the commit ID of the latest tag
-#LATEST_TAG_COMMIT=$(git rev-list -n 1 "$LATEST_TAG")
+LATEST_TAG_COMMIT=$(git rev-list -n 1 "$LATEST_TAG")
 #
 ## Get the latest commit ID on the main branch
 LATEST_MAIN_COMMIT=$(git rev-parse "origin/main")
 #
 ## Check if the commit IDs are the same
-#if [[ "$LATEST_TAG_COMMIT" == "$LATEST_MAIN_COMMIT" ]]; then
-#  echo "Error: The latest tag already points to the current commit on the main branch. No need to create a new version."
-#  exit 1
-#fi
+if [[ "$LATEST_TAG_COMMIT" == "$LATEST_MAIN_COMMIT" ]]; then
+  echo "Error: The latest tag already points to the current commit on the main branch. No need to create a new version."
+  exit 1
+fi
 
 ## We increment the version based on the argument provided
 # if it's patch then we increment the patch version
