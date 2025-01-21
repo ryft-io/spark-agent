@@ -1,4 +1,4 @@
-name: Deploy Maven Artifact on Release
+name: Deploy Maven Artifact on Tag
 
 on:
   push:
