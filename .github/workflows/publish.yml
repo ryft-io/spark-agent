@@ -28,8 +28,10 @@ jobs:
       - name: Extract and format release version
         id: extract_version
         run: |
-          echo "TAG=${{ github.ref_name }}"
-          echo "ARTIFACT_VERSION=${TAG:1}" >> $GITHUB_ENV
+          TAG=${{ github.ref_name }}
+          ARTIFACT_VERSION=${TAG:1}
+          echo "Setting artifact version to $ARTIFACT_VERSION"
+          echo "ARTIFACT_VERSION=$ARTIFACT_VERSION" >> $GITHUB_ENV
       - name: Publish package
         run: mvn clean --batch-mode deploy -DskipTests -Dartifact.version=${{ env.ARTIFACT_VERSION }}
         env:
