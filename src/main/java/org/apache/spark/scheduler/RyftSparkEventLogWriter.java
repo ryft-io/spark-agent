@@ -83,6 +83,9 @@ public class RyftSparkEventLogWriter implements SparkListenerInterface {
     // Writer spark context properties
     private SparkConf sparkConf;
     private String applicationId;
+    private String appName;
+    private long startTime;
+    private String user;
     private Option<String> applicationAttemptId;
     private Configuration hadoopConf;
 
@@ -101,6 +104,9 @@ public class RyftSparkEventLogWriter implements SparkListenerInterface {
         try {
             sparkConf = sparkContext.getConf();
             applicationId = sparkContext.applicationId();
+            appName = sparkContext.appName();
+            startTime = sparkContext.startTime();
+            String user = sparkContext.sparkUser();
             applicationAttemptId = sparkContext.applicationAttemptId();
             hadoopConf = sparkContext.hadoopConfiguration();
 
@@ -125,6 +131,26 @@ public class RyftSparkEventLogWriter implements SparkListenerInterface {
         var logFolderPath = new Path(eventLogBaseDir);
         FileSystem.mkdirs(fileSystem, logFolderPath, logFolderPermissions);
     }
+
+    private void writeApplicationStart() {
+        LOG.info("Ryft starts writing logs for application with ID: {}, and name: {}", applicationId, appName);
+        try {
+            var applicationStart = new SparkListenerApplicationStart(
+                    appName,
+                    new Some<>(applicationId),
+                    startTime,
+                    user,
+                    applicationAttemptId,
+                    Option.empty(),
+                    Option.empty()
+            );
+
+            writeEventToLog(applicationStart);
+        } catch (Exception e) {
+            LOG.warn("Ryft failed to write application start event, continuing", e);
+        }
+    }
+
 
     // we support the following interval expressions as config values following the scala duration standard:
     // <size integer><time unit> - example 5s, 5m, 5h
@@ -221,6 +247,7 @@ public class RyftSparkEventLogWriter implements SparkListenerInterface {
             LOG.info("Starting ryft event log writer");
             eventLogWriter.start();
             lastRotationTimestamp = Instant.now();
+            writeApplicationStart();
         } catch (Exception e) {
             numAttempts++;
             LOG.error(
