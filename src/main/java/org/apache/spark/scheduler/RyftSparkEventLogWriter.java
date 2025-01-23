@@ -17,7 +17,6 @@ import org.slf4j.Logger;
 
 import java.time.Instant;
 import java.util.Random;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.LoggerFactory;
 import scala.Option;
