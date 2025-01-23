@@ -105,7 +105,7 @@ public class RyftSparkEventLogWriter implements SparkListenerInterface {
             applicationId = sparkContext.applicationId();
             appName = sparkContext.appName();
             startTime = sparkContext.startTime();
-            String user = sparkContext.sparkUser();
+            user = sparkContext.sparkUser();
             applicationAttemptId = sparkContext.applicationAttemptId();
             hadoopConf = sparkContext.hadoopConfiguration();
 
