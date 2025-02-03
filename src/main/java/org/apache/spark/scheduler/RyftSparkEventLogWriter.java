@@ -367,7 +367,9 @@ public class RyftSparkEventLogWriter implements SparkListenerInterface {
   public void onTaskGettingResult(SparkListenerTaskGettingResult taskGettingResult) {}
 
   @Override
-  public void onTaskEnd(SparkListenerTaskEnd taskEnd) {}
+  public void onTaskEnd(SparkListenerTaskEnd taskEnd) {
+    writeEventToLog(taskEnd);
+  }
 
   @Override
   public void onStageCompleted(SparkListenerStageCompleted event) {
